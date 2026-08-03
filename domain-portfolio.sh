@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # domain-portfolio.sh — v1.0.0
-# Author : Ruhani Rabin Homelab
+# Author : Ruhani Rabin (https://www.ruhanirabin.com)
 # Created: 2026-08-03
 #
 # Description:

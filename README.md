@@ -157,3 +157,7 @@ See [AGENTS.md](AGENTS.md) for the full architecture, API reference, and develop
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## About the Author
+
+[Ruhani Rabin](https://www.ruhanirabin.com) is an independent product and technology advisor who has developed software professionally since 1997 and led product work since 2010. He helps SaaS and WordPress teams fix what is slow, confusing, repetitive, or unnecessarily complex — from website performance and workflow automation to product strategy and technology decisions.
