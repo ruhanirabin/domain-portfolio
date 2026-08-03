@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# domain-portfolio.sh — v1.0.0
+# domain-portfolio.sh — v1.1.0
 # Author : Ruhani Rabin (https://www.ruhanirabin.com)
 # Created: 2026-08-03
 #
@@ -67,7 +67,7 @@ log() {
 
 die() { log "ERROR" "$1"; exit 1; }
 
-require_command() { command -v "$1" >/dev/null 2>&1 || die "Missing: $1"; }
+require_command() { command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"; }
 
 cleanup() {
     local ec=$?
@@ -81,6 +81,88 @@ cleanup() {
 prune_logs() {
     find "$LOG_DIR" -type f -name "${SCRIPT_NAME}-*.log" \
         -mtime "+${LOG_RETENTION_DAYS}" -delete 2>/dev/null || true
+}
+
+# ── Dependency Check ────────────────────────────────────────
+
+# Maps command names to Debian/Ubuntu apt package names.
+# Commands not listed use the same name as the command.
+declare -A CMD_PKG=(
+    [flock]=util-linux
+    [install]=coreutils
+)
+
+check_dependencies() {
+    local missing=() cmd pkg pkgs=()
+
+    for cmd in curl jq flock install awk; do
+        command -v "$cmd" >/dev/null 2>&1 && continue
+        missing+=("$cmd")
+    done
+
+    if (( ${#missing[@]} == 0 )); then
+        return 0
+    fi
+
+    for cmd in "${missing[@]}"; do
+        pkgs+=("${CMD_PKG[$cmd]:-$cmd}")
+    done
+
+    printf '\n%s\n' '── Missing Required Commands ──' >&2
+    for cmd in "${missing[@]}"; do
+        local p="${CMD_PKG[$cmd]:-$cmd}"
+        printf '  %-10s →  apt package: %s\n' "$cmd" "$p" >&2
+    done
+    printf '\n' >&2
+
+    # Non-interactive (cron, pipe, redirect) → print instructions only
+    if [[ ! -t 0 ]]; then
+        printf 'Running non-interactively. Install manually:\n' >&2
+        printf '  sudo apt-get update && sudo apt-get install -y %s\n' "${pkgs[*]}" >&2
+        printf '\n' >&2
+        exit 1
+    fi
+
+    # Unsupported system (no apt-get)
+    if ! command -v apt-get >/dev/null 2>&1; then
+        printf 'This script is designed for Debian/Ubuntu systems (apt-get required).\n' >&2
+        printf 'Please install the following packages manually:\n' >&2
+        printf '  %s\n' "${pkgs[*]}" >&2
+        exit 1
+    fi
+
+    # Interactive — offer to install
+    printf 'Install missing packages now? [Y/n] ' >&2
+    read -r answer
+    if [[ "$answer" =~ ^[Nn] ]]; then
+        printf 'Cannot continue without required packages.\n' >&2
+        printf 'Install with: sudo apt-get update && sudo apt-get install -y %s\n' "${pkgs[*]}" >&2
+        exit 1
+    fi
+
+    local sudo=""
+    if (( EUID != 0 )); then
+        if ! command -v sudo >/dev/null 2>&1; then
+            printf 'sudo is not available. Run as root or install sudo, then re-run.\n' >&2
+            exit 1
+        fi
+        sudo="sudo"
+    fi
+
+    printf 'Updating package lists …\n' >&2
+    $sudo apt-get update -qq || {
+        printf 'apt-get update failed.\nInstall manually: sudo apt-get update && sudo apt-get install -y %s\n' "${pkgs[*]}" >&2
+        exit 1
+    }
+
+    printf 'Installing: %s\n' "${pkgs[*]}" >&2
+    $sudo apt-get install -y "${pkgs[@]}" || {
+        printf 'Installation failed.\nInstall manually: sudo apt-get install -y %s\n' "${pkgs[*]}" >&2
+        exit 1
+    }
+
+    printf 'All dependencies installed.\n\n' >&2
+    return 0
 }
 
 # ── Environment ────────────────────────────────────────────
@@ -97,6 +179,12 @@ load_env() {
 
     [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[A-Za-z0-9]{32}$ ]] \
         || die "CLOUDFLARE_ACCOUNT_ID must be 32-character identifier."
+    [[ "${CLOUDFLARE_API_TOKEN}" =~ ^[A-Za-z0-9_\-]{20,}$ ]] \
+        || die "CLOUDFLARE_API_TOKEN appears invalid (expecting 20+ alphanumeric characters)."
+    [[ "${PORKBUN_API_KEY}" =~ ^pk1_ ]] \
+        || die "PORKBUN_API_KEY must start with 'pk1_'."
+    [[ "${PORKBUN_SECRET_API_KEY}" =~ ^sk1_ ]] \
+        || die "PORKBUN_SECRET_API_KEY must start with 'sk1_'."
 }
 
 # ── Generic API Helpers ────────────────────────────────────
@@ -196,6 +284,7 @@ pb_fetch_pricing() {
 pb_enrich() {
     log "INFO" "Porkbun: enriching with pricing data."
     jq --slurpfile prices "${TEMP_DIR}/pb-pricing.json" '
+       # Only include ACTIVE domains in output (expired/transferred domains are excluded)
       map(select((.status//""|ascii_upcase)=="ACTIVE"))
       | sort_by(.domain)
       | map(
@@ -229,7 +318,7 @@ cf_fetch_zones() {
 
 cf_dedup() {
     local pb_names="${TEMP_DIR}/pb-domain-names.txt"
-    jq -r '.[].domain' "${TEMP_DIR}/pb-enriched.json" | LC_ALL=C sort -u > "$pb_names"
+    jq -r '.[].domain' "${TEMP_DIR}/pb-domains-raw.json" | LC_ALL=C sort -u > "$pb_names"
 
     log "INFO" "Dedup: removing Cloudflare zones that match Porkbun domains."
 
@@ -406,11 +495,10 @@ main() {
     RUN_LOG="${LOG_DIR}/${SCRIPT_NAME}-${RUN_TIMESTAMP}.log"
     : > "$RUN_LOG"; chmod 600 "$RUN_LOG"
 
+    trap cleanup EXIT INT TERM
     exec 9>"$LOCK_FILE"; flock -n 9 || die "Another run is active."
 
-    trap cleanup EXIT INT TERM
 
-    require_command curl; require_command jq; require_command flock; require_command install
 
     load_env
     CF_REGISTRAR_API="${CF_API_BASE}/accounts/${CLOUDFLARE_ACCOUNT_ID}/registrar"
@@ -446,4 +534,5 @@ main() {
     log "INFO" "=== domain-portfolio run complete ==="
 }
 
+check_dependencies
 main "$@"

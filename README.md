@@ -53,9 +53,13 @@ In Google Sheets:
 
 ## Prerequisites
 
-- **bash** 4+, **curl**, **jq**, **flock** (util-linux), **install** (coreutils)
-- Cloudflare account with an API token
-- Porkbun account with API keys
+- **Debian 12+ or Ubuntu 22.04+** (the script only supports apt-based systems)
+- **Cloudflare account** with an API token
+- **Porkbun account** with API keys
+
+The script automatically checks for required commands (`curl`, `jq`, `flock`, `install`, `awk`) and offers to install missing packages via `apt-get` when run interactively. If run non-interactively (e.g., cron), it prints the exact install command and exits.
+
+No manual dependency installation required on Debian/Ubuntu — the script handles it.
 
 ## Quick Start
 
@@ -131,6 +135,7 @@ domain-portfolio.sh
 - Cloudflare zones that match Porkbun domain names are **removed**.
 - Remaining Cloudflare zones are treated as Cloudflare-purchased.
 - If a Cloudflare zone's domain is not registered through Cloudflare Registrar, `expires_at` and `auto_renew` will be `null`.
+- **Active-only output**: Only Porkbun domains with `ACTIVE` status appear in the output. Expired, transferred, or otherwise inactive domains are excluded since they no longer represent active portfolio items.
 
 ### Pricing Sources
 

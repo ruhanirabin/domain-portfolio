@@ -4,6 +4,22 @@ All notable changes to this project. This project adheres to
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [1.1.0] — 2026-08-03
+
+### Added
+- `feat(deps)`: automated dependency check for Debian/Ubuntu — offers interactive `apt-get` install of missing `curl`/`jq` packages, prints exact install command in non-interactive mode
+- `feat(security)`: credential format validation — `CLOUDFLARE_API_TOKEN` (20+ alphanumeric), `PORKBUN_API_KEY` (`pk1_` prefix), `PORKBUN_SECRET_API_KEY` (`sk1_` prefix)
+- `docs`: About the Author section in README with bio and website link
+
+### Fixed
+- `fix(dedup)`: deduplication now reads from raw domains JSON instead of enriched (ACTIVE-only) output — inactive Porkbun domains no longer leak into Cloudflare results
+- `fix(cleanup)`: trap handler moved before lock-acquisition `die()` call in `main()` — ensures temp directory and lock file are cleaned on early failures
+
+### Changed
+- `docs`: author references updated to "Ruhani Rabin" with website URL across LICENSE, script header, and README
+- `docs`: documented ACTIVE-only output filter in README Deduplication Logic and inline script comment
+- `docs`: README prerequisites rewritten for Debian 12+ / Ubuntu 22.04+ with auto-install behavior
+
 ## [1.0.0] — 2026-08-03
 
 ### Added
