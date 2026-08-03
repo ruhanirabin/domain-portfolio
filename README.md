@@ -4,6 +4,8 @@ Consolidate your domain portfolio from Porkbun and Cloudflare into a single, ded
 
 One script. One `.env` file. One CSV for Google Sheets.
 
+![Screenshot of the Processing output from Domain Portfolio Script](domain-portfolio-0.png?raw=true "Domain Portfolio Output")
+
 ## What It Does
 
 1. **Fetches all domains from Porkbun** via the Porkbun API — the purchase source takes priority.
