@@ -1,0 +1,32 @@
+# Credentials
+.env
+
+# Output
+output/*.json
+output/*.csv
+output/*.txt
+
+# Logs
+logs/*.log
+
+# Lock files
+.lock
+*.lock
+
+# macOS
+.DS_Store
+
+# Windows
+Zone.Identifier
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+
+# Deprecated / archive
+archive/
+*.deprecated
+*.bak
